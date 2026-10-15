@@ -225,7 +225,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <dialog id="dlgMenu">
   <div class="dlg">
     <h2>ข้อมูลของคุณ</h2>
-    <p class="note">เวอร์ชันแอป: 2026.10.15-scan</p>
+    <p class="note">เวอร์ชันแอป: 2026.10.15-half</p>
     <p class="note">ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ถ้าล้างข้อมูลเบราว์เซอร์ ข้อมูลจะหาย ควรสำรองไว้เป็นระยะ</p>
     <div class="menu-list">
       <button class="btn" id="mSync">ตั้งค่าซิงก์ Google Sheet</button>
@@ -281,6 +281,8 @@ const find = (mod, id) => state[MODS[mod]].find(x => x.id === id);
    ===================================================================== */
 /** ยอดต่องวด: ถ้าผ่อน >= 2 งวด หารตามงวด ไม่งั้นใช้ยอดเต็ม */
 const perPeriod = (amount, inst) => inst && inst.periods >= 2 ? r2(amount / inst.periods) : amount;
+/** ยอดแบ่งจ่ายต่อรอบของรายการในหน้าแบ่งจ่าย: ยอดต่องวด แล้วหารสองถ้ามาจากหน้าหลัก */
+const splitBill = i => r2(perPeriod(i.amount, i.inst) / (i.half ? 2 : 1));
 /** ค่าน้ำมัน: ยอดรวม x (เปอร์เซ็นต์ / 100) */
 const fuelSplit = f => r2(f.totalCost * (f.percent / 100));
 /** ค่าน้ำมันไม่ต้องตั้งชื่อ: ใช้คำว่า "ค่าน้ำมัน" เป็นชื่อแสดงเสมอ */
@@ -295,8 +297,10 @@ const advAmt = a => a.half ? r2(a.amount / 2) : a.amount;
 function splitList() {
   const fromMain = state.expenses.filter(e => e.isSplit).map(e => ({
     key: 'split:m_' + e.id, src: 'main', srcId: e.id, title: e.title, amount: e.amount, date: e.date,
-    isPaid: e.isPaid, inst: e.inst, note: e.note,
-    info: e.inst && e.inst.periods >= 2 ? `ผ่อน ${e.inst.periods} งวด (ผ่อนแล้ว ${e.inst.paid}/${e.inst.periods}) ยอดเต็ม ${fmt(e.amount)}` : ''
+    isPaid: e.isPaid, inst: e.inst, note: e.note, half: true,      // รายการจากหน้าหลักแบ่งจ่ายครึ่งหนึ่ง (หารสอง)
+    info: e.inst && e.inst.periods >= 2
+      ? `ผ่อน ${e.inst.periods} งวด (ผ่อนแล้ว ${e.inst.paid}/${e.inst.periods}) งวดละ ${fmt(perPeriod(e.amount, e.inst))} ÷ 2`
+      : `ยอดหน้าหลัก ${fmt(e.amount)} ÷ 2`
   }));
   const fromFuel = state.fuels.filter(f => fuelSplit(f) !== 0).map(f => ({
     key: 'split:f_' + f.id, src: 'fuel', srcId: f.id, title: `${fuelName(f)} (${+f.percent}%)`, amount: fuelSplit(f), date: f.date,
@@ -315,15 +319,15 @@ function splitList() {
 const mainTotal = () => r2(state.expenses.reduce((s, e) => s + perPeriod(e.amount, e.inst), 0));
 /** รายรับ: ผู้ใช้กรอกเอง (ค่าเริ่มต้น 0) */
 const incomeValue = () => typeof state.income === 'number' && isFinite(state.income) ? state.income : 0;
-/** คงเหลือ = รายรับ - ผลรวมหน้าหลัก + แบ่งจ่าย */
+/** ค่าใช้จ่าย = รายรับ - ผลรวมหน้าหลัก (ทุกรายการเต็มจำนวน) + ผลรวมแบ่งจ่าย (รายการจากหน้าหลักหารสองแล้ว) */
 const balance = t => r2(incomeValue() - mainTotal() + t.split);
 
 function totals() {
   const sl = splitList();
-  const split = r2(sl.reduce((s, i) => s + perPeriod(i.amount, i.inst), 0));
+  const split = r2(sl.reduce((s, i) => s + splitBill(i), 0));
   const adv = r2(state.advances.reduce((s, a) => s + advAmt(a), 0));
   const unpaid = r2(
-    sl.filter(i => !i.isPaid).reduce((s, i) => s + perPeriod(i.amount, i.inst), 0) +
+    sl.filter(i => !i.isPaid).reduce((s, i) => s + splitBill(i), 0) +
     state.advances.filter(a => !a.isPaid).reduce((s, a) => s + advAmt(a), 0));
   return {split, adv, grand: r2(split + adv), unpaid};
 }
@@ -355,7 +359,7 @@ function renderHeader(t) {
   let value;
   if (isMain) {
     value = balance(t);
-    $('#grandLabel').textContent = 'คงเหลือ = รายรับ − ผลรวมหน้าหลัก + แบ่งจ่าย';
+    $('#grandLabel').textContent = 'ค่าใช้จ่าย = รายรับ − ผลรวมหน้าหลัก + แบ่งจ่าย';
     $('#chips').innerHTML = chip('รายรับ', incomeValue()) + chip('ผลรวมหน้าหลัก', mainTotal()) + chip('แบ่งจ่าย', t.split);
   } else {
     value = t.grand;
@@ -444,11 +448,11 @@ function viewSplit() {
     const mod = i.src === 'main' ? 'main' : i.src === 'fuel' ? 'fuel' : 'split';
     const own = i.src === 'manual';
     return card({
-      key: i.key, title: i.title, amount: perPeriod(i.amount, i.inst), date: i.date, paid: i.isPaid,
-      sub: i.inst && i.inst.periods >= 2 ? `ยอดเต็ม ${fmt(i.amount)}` : '',
+      key: i.key, title: i.title, amount: splitBill(i), date: i.date, paid: i.isPaid,
+      sub: i.half ? `หน้าหลัก ${fmt(perPeriod(i.amount, i.inst))} ÷ 2` : (i.inst && i.inst.periods >= 2 ? `ยอดเต็ม ${fmt(i.amount)}` : ''),
       tags: `<span class="badge src">${SRC[i.src]}</span>`,
       body: `${i.src === 'fuel' ? '' : `<div class="switches">${sw('paid', mod, i.srcId, i.isPaid, 'จ่ายแล้ว')}</div>`}
-        ${i.info && !i.inst ? `<div class="note">${esc(i.info)}</div>` : ''}
+        ${i.half ? `<div class="inst"><div class="inst-row"><span>แบ่งจ่ายครึ่งหนึ่งของหน้าหลัก: ${fmt(perPeriod(i.amount, i.inst))} ÷ 2</span><b>${fmt(splitBill(i))}</b></div></div>` : (i.info && !i.inst ? `<div class="note">${esc(i.info)}</div>` : '')}
         ${instBlock(mod, i.srcId, i.amount, i.inst)}${noteBlock(i.note)}
         <div class="actions">${own
           ? btn('edit', 'split', i.srcId, 'แก้ไข / ตั้งค่าผ่อนชำระ') + btn('delete', 'split', i.srcId, 'ลบ', 'danger')
@@ -726,7 +730,7 @@ let lastBlob = null;
 function buildReceipt(mode = 'both') {   // mode: 'both' = แบ่งจ่าย+สำรองจ่าย, 'adv' = เฉพาะสำรองจ่าย
   const t = totals();
   const splitRows = (mode === 'adv' ? [] : splitList()).map(i => ({
-    title: i.title, amt: perPeriod(i.amount, i.inst),
+    title: i.title, amt: splitBill(i),
     sub: [i.info, i.isPaid ? 'จ่ายแล้ว' : ''].filter(Boolean).join('  |  '), paid: i.isPaid
   }));
   const advRows = [...state.advances].sort((a, b) => b.date.localeCompare(a.date)).map(a => ({
@@ -871,7 +875,7 @@ $('#mClear').onclick = () => {
 /* ---- แก้ไขรายรับ ---- */
 $('#btnIncome').onclick = () => {
   const t = totals();
-  $('#incomeHint').textContent = `คงเหลือ = รายรับ − ผลรวมหน้าหลัก ${fmt(mainTotal())} + แบ่งจ่าย ${fmt(t.split)}`;
+  $('#incomeHint').textContent = `ค่าใช้จ่าย = รายรับ − ผลรวมหน้าหลัก ${fmt(mainTotal())} + แบ่งจ่าย ${fmt(t.split)}`;
   $('#f_income').value = incomeValue();
   $('#incomeErr').textContent = '';
   $('#dlgIncome').showModal();
