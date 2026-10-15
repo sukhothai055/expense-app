@@ -1,5 +1,5 @@
 // Service worker: เก็บไฟล์แอปไว้ใช้ออฟไลน์ (network-first)
-const CACHE = 'expense-v1';
+const CACHE = 'expense-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -11,6 +11,7 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  if (new URL(e.request.url).origin !== self.location.origin) return;   // ปล่อยไฟล์จากโดเมนอื่นผ่านตามปกติ
   e.respondWith(
     fetch(e.request).then(r => {
       const copy = r.clone();
