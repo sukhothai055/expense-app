@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#134e4a">
+<title>บันทึกรายจ่าย</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --pine:#134e4a; --pine-2:#0f3f3c; --paper:#f3f6f5; --card:#ffffff; --ink:#14201f; --muted:#5d6b69;
+  --line:#dbe3e1; --coin:#e0a21c; --ok:#17794a; --ok-bg:#dcf3e6; --warn:#9a5b00; --warn-bg:#fdeccb;
+  --danger:#b42318; --field:#f7faf9;
+  --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{--paper:#0e1716; --card:#17221f; --ink:#e8f0ee; --muted:#9bb0ac; --line:#2a3a37; --field:#101a18;
+    --ok:#6ad39a; --ok-bg:#16382a; --warn:#f0c36a; --warn-bg:#3b2d10; --danger:#ff8a7d;}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Sarabun","Noto Sans Thai","Leelawadee UI","Segoe UI",Tahoma,sans-serif;font-size:16px;line-height:1.45}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:20;background:var(--pine);color:#fff;
+  padding:calc(var(--safe-top) + 12px) 16px 12px}
+.head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;max-width:760px;margin:0 auto}
+.grand-label{font-size:13px;opacity:.8}
+.grand{font-size:34px;font-weight:700;line-height:1.1;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.grand small{font-size:15px;font-weight:500;opacity:.8;margin-left:4px}
+.head-btns{display:flex;gap:8px}
+.hbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:10px;
+  padding:8px 12px;font-size:14px;white-space:nowrap}
+.hbtn.primary{background:var(--coin);border-color:var(--coin);color:#2a1d00;font-weight:600}
+.chips{display:flex;gap:8px;max-width:760px;margin:10px auto 0;overflow-x:auto}
+.chip{flex:1 0 auto;background:rgba(255,255,255,.1);border-radius:10px;padding:6px 10px;font-size:13px;min-width:104px}
+.grand.neg{color:#ffb4a8}
+.sync{max-width:760px;margin:8px auto 0;font-size:12px;opacity:.9;cursor:pointer}
+.sync::before{content:"● ";opacity:.9}
+.sync.ok::before{color:#6ad39a}.sync.warn::before{color:#f3c14b}.sync.bad::before{color:#ff8a7d}
+.edit-mini{margin-left:10px;padding:3px 10px;font-size:13px;vertical-align:middle}
+.chip b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+
+/* ---------- layout ---------- */
+main{max-width:760px;margin:0 auto;padding:14px 14px calc(150px + var(--safe-bottom))}
+.section-note{flex-wrap:wrap;display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--muted);font-size:14px;margin:2px 2px 10px}
+.section-note b{color:var(--ink);font-variant-numeric:tabular-nums}
+.empty{border:2px dashed var(--line);border-radius:14px;padding:28px 16px;text-align:center;color:var(--muted)}
+
+/* ---------- expandable card ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--coin);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.card.paid{border-left-color:var(--ok)}
+.card summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 12px 12px 14px;cursor:pointer}
+.card summary::-webkit-details-marker{display:none}
+.c-main{flex:1;min-width:0}
+.c-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-meta{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.c-amt{text-align:right;font-variant-numeric:tabular-nums}
+.c-amt b{font-size:18px;display:block}
+.c-amt small{color:var(--muted);font-size:12px}
+.chev{width:10px;height:10px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;margin:0 4px 4px 2px}
+.card[open] .chev{transform:rotate(-135deg);margin-bottom:-2px}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.src{background:var(--field);border:1px solid var(--line);color:var(--muted);font-weight:500}
+.c-body{border-top:1px solid var(--line);padding:12px 14px 14px;display:grid;gap:12px}
+.switches{display:flex;flex-wrap:wrap;gap:8px}
+.sw{display:flex;align-items:center;gap:8px;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;user-select:none}
+.sw input{width:20px;height:20px;accent-color:var(--pine)}
+.inst{background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:8px;font-size:14px}
+.inst-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bar{height:8px;border-radius:6px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--pine)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:20px;line-height:1}
+.note{font-size:14px;color:var(--muted);white-space:pre-wrap}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 14px;font-size:14px}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn.fill{background:var(--pine);border-color:var(--pine);color:#fff}
+
+/* ---------- bottom nav + fab ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);
+  display:flex;padding-bottom:var(--safe-bottom)}
+nav button{flex:1;border:0;background:none;padding:10px 2px;font-size:13px;color:var(--muted);border-top:3px solid transparent;font-weight:500}
+nav button[aria-selected="true"]{color:var(--pine);border-top-color:var(--pine);font-weight:700}
+@media (prefers-color-scheme:dark){nav button[aria-selected="true"]{color:var(--coin);border-top-color:var(--coin)}}
+nav button span{display:block;font-size:11px;font-weight:400;opacity:.85;font-variant-numeric:tabular-nums}
+.fab{position:fixed;right:16px;bottom:calc(72px + var(--safe-bottom));z-index:21;background:var(--pine);color:#fff;border:0;
+  border-radius:99px;padding:14px 20px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+
+/* ---------- dialogs ---------- */
+dialog{border:0;border-radius:16px;padding:0;width:min(560px,94vw);max-height:92vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dlg{padding:18px;display:grid;gap:12px}
+.dlg h2{margin:0;font-size:19px}
+.field{display:grid;gap:4px}
+.field label,.lab{font-size:14px;color:var(--muted)}
+.field input[type=text],.field input[type=password],.field input[type=number],.field input[type=date],.field textarea{
+  width:100%;border:1px solid var(--line);background:var(--field);border-radius:10px;padding:10px 12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.preview{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:8px 12px;font-size:14px;font-weight:600}
+.err{color:var(--danger);font-size:14px;min-height:1.2em}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px}
+.receipt-img{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
+.menu-list{display:grid;gap:8px}
+.toast{position:fixed;left:50%;bottom:calc(130px + var(--safe-bottom));transform:translateX(-50%);background:#14201f;color:#fff;
+  padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <div>
+      <div class="grand-label" id="grandLabel"></div>
+      <div class="grand"><span id="sumGrand">0.00</span><small>บาท</small><button class="hbtn edit-mini" id="btnIncome" hidden>แก้ไข</button></div>
+    </div>
+    <div class="head-btns">
+      <button class="hbtn primary" id="btnExport">ส่งออก JPG</button>
+      <button class="hbtn" id="btnMenu" aria-label="เมนูข้อมูล">เมนู</button>
+    </div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="sync" id="syncStatus" role="status" hidden></div>
+</header>
+
+<main id="list" aria-live="polite"></main>
+
+<button class="fab" id="fab">+ เพิ่มรายการ</button>
+
+<nav id="tabs" role="tablist">
+  <button role="tab" data-tab="main">รายการหลัก<span id="cMain"></span></button>
+  <button role="tab" data-tab="fuel">ค่าน้ำมัน<span id="cFuel"></span></button>
+  <button role="tab" data-tab="split">แบ่งจ่าย<span id="cSplit"></span></button>
+  <button role="tab" data-tab="adv">สำรองจ่าย<span id="cAdv"></span></button>
+</nav>
+
+<dialog id="dlgForm"><form id="form" class="dlg" autocomplete="off"></form></dialog>
+
+<dialog id="dlgSync">
+  <form id="syncForm" class="dlg" autocomplete="off">
+    <h2>ซิงก์ Google Sheet</h2>
+    <p class="note">ข้อมูลยังเก็บในเครื่องเป็นหลัก แล้วสำรองขึ้น Google Sheet ของคุณ ค่าด้านล่างเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น และไม่รวมในไฟล์สำรอง JSON</p>
+    <div class="field"><label for="f_surl">Web app URL (ลงท้ายด้วย /exec)</label>
+      <input id="f_surl" type="text" inputmode="url" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label for="f_stoken">TOKEN</label>
+      <input id="f_stoken" type="password" autocapitalize="off" spellcheck="false"></div>
+    <label class="sw"><input type="checkbox" id="f_sauto"><span>ซิงก์อัตโนมัติเมื่อข้อมูลเปลี่ยน</span></label>
+    <div class="err" id="syncErr" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="sCancel">ยกเลิก</button>
+      <button type="button" class="btn danger" id="sOff">ตัดการเชื่อมต่อ</button>
+      <button type="submit" class="btn fill">บันทึกและซิงก์</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgConflict">
+  <div class="dlg">
+    <h2>ข้อมูลไม่ตรงกัน</h2>
+    <p class="note">ข้อมูลบน Google Sheet ต่างจากในเครื่องนี้ (อาจมีการแก้ไขจากอีกเครื่อง) เลือกว่าจะใช้ข้อมูลชุดไหน</p>
+    <div class="menu-list">
+      <button class="btn fill" id="cSheet">ใช้ข้อมูลจาก Sheet (แทนที่ในเครื่องนี้)</button>
+      <button class="btn danger" id="cLocal">ใช้ข้อมูลในเครื่องนี้ (เขียนทับ Sheet)</button>
+      <button class="btn" id="cLater">ไว้ก่อน</button>
+    </div>
+    <p class="note">ถ้าเลือกใช้ข้อมูลจาก Sheet ย้อนกลับได้จากเมนู</p>
+  </div>
+</dialog>
+
+<dialog id="dlgIncome">
+  <form id="incomeForm" class="dlg" autocomplete="off">
+    <h2>แก้ไขรายรับ</h2>
+    <p class="note" id="incomeHint"></p>
+    <div class="field"><label for="f_income">รายรับ (บาท)</label>
+      <input id="f_income" type="number" step="any" required></div>
+    <div class="err" id="incomeErr" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="iCancel">ยกเลิก</button>
+      <button type="submit" class="btn fill">บันทึก</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgReceipt">
+  <div class="dlg">
+    <h2>ตัวอย่างรูปสรุป</h2>
+    <img id="receiptImg" class="receipt-img" alt="ตัวอย่างรูปสรุปรายการแบ่งจ่ายและสำรองจ่าย">
+    <div class="dlg-actions">
+      <button class="btn" id="rClose">ปิด</button>
+      <button class="btn" id="rShare">แชร์</button>
+      <button class="btn fill" id="rSave">บันทึกเป็น JPG</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlgMenu">
+  <div class="dlg">
+    <h2>ข้อมูลของคุณ</h2>
+    <p class="note">ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ถ้าล้างข้อมูลเบราว์เซอร์ ข้อมูลจะหาย ควรสำรองไว้เป็นระยะ</p>
+    <div class="menu-list">
+      <button class="btn" id="mSync">ตั้งค่าซิงก์ Google Sheet</button>
+      <button class="btn" id="mSyncNow" hidden>ซิงก์ตอนนี้</button>
+      <button class="btn" id="mBackup">สำรองข้อมูลเป็นไฟล์ JSON</button>
+      <button class="btn" id="mRestore">นำเข้าข้อมูลจากไฟล์ JSON</button>
+      <button class="btn" id="mUndo">ย้อนกลับการลบครั้งล่าสุด (เดือนต่อไป / สำรองจ่าย)</button>
+      <button class="btn danger" id="mClear">ลบข้อมูลทั้งหมด</button>
+    </div>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    <div class="dlg-actions"><button class="btn" id="mClose">ปิด</button></div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   1) ข้อมูลและตัวช่วย
+   ===================================================================== */
+const KEY = 'expense_app_v1';
+const $  = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2  = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const fmt = n => Number(n).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 9));
+const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const fmtDate = iso => { const d = new Date(iso + 'T00:00:00'); return isNaN(d) ? '' : d.toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: '2-digit'}); };
+
+const EMPTY = () => ({expenses: [], fuels: [], splits: [], advances: [], income: null});
+let state = load();
+let tab = 'main';
+const openCards = new Set();   // จำการ์ดที่เปิดอยู่ ไม่ให้หุบเวลาวาดหน้าใหม่
+
+function load() {
+  try {
+    const r = JSON.parse(localStorage.getItem(KEY));
+    return Object.assign(EMPTY(), r && typeof r === 'object' ? r : {});
+  } catch (e) { return EMPTY(); }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch (e) { toast('บันทึกลงเครื่องไม่สำเร็จ'); }
+}
+function commit() { save(); render(); scheduleSync(); }
+
+const MODS = {main: 'expenses', fuel: 'fuels', split: 'splits', adv: 'advances'};
+const find = (mod, id) => state[MODS[mod]].find(x => x.id === id);
+
+/* =====================================================================
+   2) ตรรกะหลัก (คำนวณ + ส่งข้อมูลระหว่างโมดูล)
+   ===================================================================== */
+/** ยอดต่องวด: ถ้าผ่อน >= 2 งวด หารตามงวด ไม่งั้นใช้ยอดเต็ม */
+const perPeriod = (amount, inst) => inst && inst.periods >= 2 ? r2(amount / inst.periods) : amount;
+/** ค่าน้ำมัน: ยอดรวม x (เปอร์เซ็นต์ / 100) */
+const fuelSplit = f => r2(f.totalCost * (f.percent / 100));
+/** ค่าน้ำมันไม่ต้องตั้งชื่อ: ใช้คำว่า "ค่าน้ำมัน" เป็นชื่อแสดงเสมอ */
+const fuelName = f => (f.title && f.title.trim()) || 'ค่าน้ำมัน';
+/** สำรองจ่าย: หารสองถ้าเลือก */
+const advAmt = a => a.half ? r2(a.amount / 2) : a.amount;
+
+/**
+ * รายการแบ่งจ่ายทั้งหมด = รายการหลักที่เปิดแบ่งจ่าย + ค่าน้ำมัน(ตาม %) + รายการที่เพิ่มเอง
+ * ไม่คัดลอกข้อมูล แต่คำนวณจากต้นทางทุกครั้ง จึงตรงกับต้นทางเสมอ
+ */
+function splitList() {
+  const fromMain = state.expenses.filter(e => e.isSplit).map(e => ({
+    key: 'split:m_' + e.id, src: 'main', srcId: e.id, title: e.title, amount: e.amount, date: e.date,
+    isPaid: e.isPaid, inst: e.inst, note: e.note,
+    info: e.inst && e.inst.periods >= 2 ? `ผ่อน ${e.inst.periods} งวด (ผ่อนแล้ว ${e.inst.paid}/${e.inst.periods}) ยอดเต็ม ${fmt(e.amount)}` : ''
+  }));
+  const fromFuel = state.fuels.filter(f => fuelSplit(f) !== 0).map(f => ({
+    key: 'split:f_' + f.id, src: 'fuel', srcId: f.id, title: `${fuelName(f)} (${+f.percent}%)`, amount: fuelSplit(f), date: f.date,
+    isPaid: true, inst: null, note: f.note,
+    info: `ค่าน้ำมันรวม ${fmt(f.totalCost)} x ${+f.percent}%`
+  }));
+  const manual = state.splits.map(s => ({
+    key: 'split:s_' + s.id, src: 'manual', srcId: s.id, title: s.title, amount: s.amount, date: s.date,
+    isPaid: s.isPaid, inst: s.inst, note: s.note,
+    info: s.inst && s.inst.periods >= 2 ? `ผ่อน ${s.inst.periods} งวด (ผ่อนแล้ว ${s.inst.paid}/${s.inst.periods}) ยอดเต็ม ${fmt(s.amount)}` : ''
+  }));
+  return [...fromMain, ...fromFuel, ...manual].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** ผลรวมหน้าหลัก (ยอดต่องวดสำหรับรายการผ่อน ให้เกณฑ์เดียวกับยอดแบ่งจ่าย) */
+const mainTotal = () => r2(state.expenses.reduce((s, e) => s + perPeriod(e.amount, e.inst), 0));
+/** รายรับ: ผู้ใช้กรอกเอง (ค่าเริ่มต้น 0) */
+const incomeValue = () => typeof state.income === 'number' && isFinite(state.income) ? state.income : 0;
+/** คงเหลือ = รายรับ - ผลรวมหน้าหลัก + แบ่งจ่าย */
+const balance = t => r2(incomeValue() - mainTotal() + t.split);
+
+function totals() {
+  const sl = splitList();
+  const split = r2(sl.reduce((s, i) => s + perPeriod(i.amount, i.inst), 0));
+  const adv = r2(state.advances.reduce((s, a) => s + advAmt(a), 0));
+  const unpaid = r2(
+    sl.filter(i => !i.isPaid).reduce((s, i) => s + perPeriod(i.amount, i.inst), 0) +
+    state.advances.filter(a => !a.isPaid).reduce((s, a) => s + advAmt(a), 0));
+  return {split, adv, grand: r2(split + adv), unpaid};
+}
+
+/* =====================================================================
+   3) วาดหน้าจอ
+   ===================================================================== */
+const TAB_LABEL = {main: 'รายการหลัก', fuel: 'ค่าน้ำมัน', split: 'แบ่งจ่าย', adv: 'สำรองจ่าย'};
+
+function render() {
+  const t = totals();
+  renderHeader(t);
+  $('#cMain').textContent = state.expenses.length + ' รายการ';
+  $('#cFuel').textContent = state.fuels.length + ' รายการ';
+  $('#cSplit').textContent = splitList().length + ' รายการ';
+  $('#cAdv').textContent = state.advances.length + ' รายการ';
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+
+  const view = {main: viewMain, fuel: viewFuel, split: viewSplit, adv: viewAdv}[tab]();
+  $('#list').innerHTML = view;
+  $('#fab').textContent = '+ เพิ่ม' + TAB_LABEL[tab];
+}
+
+/** หัวหน้าจอ: หน้าหลักแสดงคงเหลือ  หน้าอื่นแสดงยอดรวมต้องจ่าย */
+function renderHeader(t) {
+  const chip = (label, v) => `<div class="chip">${label}<b>${fmt(v)}</b></div>`;
+  const isMain = tab === 'main';
+  $('#btnIncome').hidden = !isMain;
+  let value;
+  if (isMain) {
+    value = balance(t);
+    $('#grandLabel').textContent = 'คงเหลือ = รายรับ − ผลรวมหน้าหลัก + แบ่งจ่าย';
+    $('#chips').innerHTML = chip('รายรับ', incomeValue()) + chip('ผลรวมหน้าหลัก', mainTotal()) + chip('แบ่งจ่าย', t.split);
+  } else {
+    value = t.grand;
+    $('#grandLabel').textContent = 'ยอดรวมต้องจ่าย (แบ่งจ่าย + สำรองจ่าย)';
+    $('#chips').innerHTML = chip('แบ่งจ่าย', t.split) + chip('สำรองจ่าย', t.adv) + chip('ยังไม่จ่าย', t.unpaid);
+  }
+  $('#sumGrand').textContent = fmt(value);
+  $('.grand').classList.toggle('neg', isMain && value < 0);   // คงเหลือติดลบแสดงสีเตือน
+}
+
+const paidBadge = p => p ? '<span class="badge ok">จ่ายแล้ว</span>' : '<span class="badge warn">ยังไม่จ่าย</span>';
+
+/** การ์ดแบบขยายได้: หุบ = ชื่อ/ยอด/วันที่/สถานะ  ขยาย = ตั้งค่าและรายละเอียด */
+function card(o) {
+  return `<details class="card${o.paid ? ' paid' : ''}" data-key="${esc(o.key)}"${openCards.has(o.key) ? ' open' : ''}>
+    <summary>
+      <div class="c-main">
+        <div class="c-title">${esc(o.title)}</div>
+        <div class="c-meta">${fmtDate(o.date)} ${o.hideStatus ? '' : paidBadge(o.paid)} ${o.tags || ''}</div>
+      </div>
+      <div class="c-amt"><b>${fmt(o.amount)}</b>${o.sub ? `<small>${o.sub}</small>` : ''}</div>
+      <span class="chev" aria-hidden="true"></span>
+    </summary>
+    <div class="c-body">${o.body}</div>
+  </details>`;
+}
+
+const sw = (act, mod, id, checked, label) =>
+  `<label class="sw"><input type="checkbox" data-act="${act}" data-mod="${mod}" data-id="${esc(id)}"${checked ? ' checked' : ''}><span>${label}</span></label>`;
+const btn = (act, mod, id, label, cls = '') =>
+  `<button class="btn ${cls}" data-act="${act}" data-mod="${mod}" data-id="${esc(id)}">${label}</button>`;
+
+function instBlock(mod, id, amount, inst) {
+  if (!inst || inst.periods < 2) return '';
+  const per = perPeriod(amount, inst);
+  const left = r2(amount - per * inst.paid);
+  const pct = Math.min(100, Math.round(inst.paid / inst.periods * 100));
+  return `<div class="inst">
+    <div class="inst-row"><span>ผ่อน ${inst.periods} งวด งวดละ <b>${fmt(per)}</b></span><span>คงเหลือ <b>${fmt(left || 0)}</b></span></div>
+    <div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>
+    <div class="inst-row"><span>ผ่อนแล้ว ${inst.paid} / ${inst.periods} งวด</span>
+      <span class="stepper">
+        <button data-act="inst-dec" data-mod="${mod}" data-id="${esc(id)}" aria-label="ลดงวดที่จ่ายแล้ว">−</button>
+        <button data-act="inst-inc" data-mod="${mod}" data-id="${esc(id)}" aria-label="เพิ่มงวดที่จ่ายแล้ว">+</button>
+      </span></div>
+  </div>`;
+}
+const noteBlock = n => n ? `<div class="note">${esc(n)}</div>` : '';
+const emptyBox = txt => `<div class="empty">${txt}</div>`;
+
+function viewMain() {
+  if (!state.expenses.length) return emptyBox('ยังไม่มีรายการ กดปุ่ม "+ เพิ่มรายการหลัก" ด้านล่างเพื่อเริ่ม');
+  const total = mainTotal();
+  const items = [...state.expenses].sort((a, b) => b.date.localeCompare(a.date)).map(e => card({
+    key: 'main:' + e.id, title: e.title, amount: e.amount, date: e.date, paid: e.isPaid,
+    sub: e.inst && e.inst.periods >= 2 ? `งวดละ ${fmt(perPeriod(e.amount, e.inst))}` : '',
+    tags: e.isSplit ? '<span class="badge src">แบ่งจ่าย</span>' : '',
+    body: `<div class="switches">${sw('paid', 'main', e.id, e.isPaid, 'จ่ายแล้ว')}${sw('split', 'main', e.id, e.isSplit, 'แบ่งจ่าย (ส่งไปหน้าแบ่งจ่าย)')}</div>
+      ${instBlock('main', e.id, e.amount, e.inst)}${noteBlock(e.note)}
+      <div class="actions">${btn('edit', 'main', e.id, 'แก้ไข / ตั้งค่าผ่อนชำระ')}${btn('delete', 'main', e.id, 'ลบ', 'danger')}</div>`
+  })).join('');
+  return `<div class="section-note"><span>ผลรวมหน้าหลัก <b>${fmt(total)}</b></span><button class="btn fill" data-act="nextmonth">เดือนต่อไป</button></div>${items}`;
+}
+
+function viewFuel() {
+  if (!state.fuels.length) return emptyBox('ยังไม่มีบันทึกค่าน้ำมัน กดปุ่ม "+ เพิ่มค่าน้ำมัน" แล้วใส่ % ที่ต้องแบ่งจ่าย');
+  const total = r2(state.fuels.reduce((s, f) => s + fuelSplit(f), 0));
+  const items = [...state.fuels].sort((a, b) => b.date.localeCompare(a.date)).map(f => card({
+    key: 'fuel:' + f.id, title: fuelName(f), amount: f.totalCost, date: f.date, paid: true, hideStatus: true,
+    sub: `แบ่ง ${+f.percent}% = ${fmt(fuelSplit(f))}`,
+    body: `
+      <div class="inst"><div class="inst-row"><span>ยอดรวม ${fmt(f.totalCost)} x ${+f.percent}%</span><b>${fmt(fuelSplit(f))}</b></div>
+      <div class="note">ยอดนี้ถูกส่งไปหน้าแบ่งจ่ายอัตโนมัติ</div></div>
+      ${noteBlock(f.note)}
+      <div class="actions">${btn('edit', 'fuel', f.id, 'แก้ไข')}${btn('delete', 'fuel', f.id, 'ลบ', 'danger')}</div>`
+  })).join('');
+  return `<div class="section-note"><span>ยอดแบ่งจ่ายจากค่าน้ำมัน</span><b>${fmt(total)}</b></div>${items}`;
+}
+
+function viewSplit() {
+  const sl = splitList();
+  if (!sl.length) return emptyBox('ยังไม่มีรายการแบ่งจ่าย<br>เปิด "แบ่งจ่าย" ที่รายการหลัก, ใส่ % ที่ค่าน้ำมัน หรือกดเพิ่มเองที่นี่');
+  const t = totals();
+  const SRC = {main: 'จากรายการหลัก', fuel: 'จากค่าน้ำมัน', manual: 'เพิ่มเอง'};
+  const items = sl.map(i => {
+    const mod = i.src === 'main' ? 'main' : i.src === 'fuel' ? 'fuel' : 'split';
+    const own = i.src === 'manual';
+    return card({
+      key: i.key, title: i.title, amount: perPeriod(i.amount, i.inst), date: i.date, paid: i.isPaid,
+      sub: i.inst && i.inst.periods >= 2 ? `ยอดเต็ม ${fmt(i.amount)}` : '',
+      tags: `<span class="badge src">${SRC[i.src]}</span>`,
+      body: `${i.src === 'fuel' ? '' : `<div class="switches">${sw('paid', mod, i.srcId, i.isPaid, 'จ่ายแล้ว')}</div>`}
+        ${i.info && !i.inst ? `<div class="note">${esc(i.info)}</div>` : ''}
+        ${instBlock(mod, i.srcId, i.amount, i.inst)}${noteBlock(i.note)}
+        <div class="actions">${own
+          ? btn('edit', 'split', i.srcId, 'แก้ไข / ตั้งค่าผ่อนชำระ') + btn('delete', 'split', i.srcId, 'ลบ', 'danger')
+          : btn('goto', mod, i.srcId, 'ไปแก้ที่ต้นทาง') + (i.src === 'main' ? btn('unsplit', 'main', i.srcId, 'เลิกแบ่งจ่าย', 'danger') : '')}</div>`
+    });
+  }).join('');
+  return `<div class="section-note"><span>รวมแบ่งจ่าย <b>${fmt(t.split)}</b></span><button class="btn fill" data-act="paidall">จ่ายแล้วทั้งหมด</button></div>${items}`;
+}
+
+function viewAdv() {
+  if (!state.advances.length) return emptyBox('ยังไม่มีรายการสำรองจ่าย กดปุ่ม "+ เพิ่มสำรองจ่าย" ด้านล่าง');
+  const t = totals();
+  const items = [...state.advances].sort((a, b) => b.date.localeCompare(a.date)).map(a => card({
+    key: 'adv:' + a.id, title: a.title, amount: advAmt(a), date: a.date, paid: a.isPaid,
+    sub: a.half ? `ยอดเต็ม ${fmt(a.amount)}` : '',
+    tags: a.half ? '<span class="badge src">หารสอง</span>' : '',
+    body: `<div class="switches">${sw('paid', 'adv', a.id, a.isPaid, 'จ่ายแล้ว (ได้รับคืนแล้ว)')}${sw('half', 'adv', a.id, a.half, 'หารสอง')}</div>
+      ${noteBlock(a.note)}
+      <div class="actions">${btn('edit', 'adv', a.id, 'แก้ไข')}${btn('delete', 'adv', a.id, 'ลบ', 'danger')}</div>`
+  })).join('');
+  return `<div class="section-note"><span>รวมสำรองจ่าย <b>${fmt(t.adv)}</b></span><span class="actions"><button class="btn" data-act="exportadv">ส่งออก JPG</button><button class="btn fill" data-act="advpaid">จ่ายแล้ว</button></span></div>${items}`;
+}
+
+/* =====================================================================
+   3.5) เดือนต่อไป
+   รายการหลัก และ รายการแบ่งจ่ายที่เพิ่มเอง:
+   - ผ่อน + จ่ายแล้ว    -> นับงวดผ่อน +1 แล้วเอาติ๊กจ่ายแล้วออก
+   - ผ่อน + นับงวดแล้ว x > n -> ลบอัตโนมัติ (x = n ยังไม่ลบ)
+   - ผ่อน + ยังไม่จ่าย  -> เอาติ๊กจ่ายแล้วออก (ไม่มีติ๊กอยู่แล้ว จึงคงเดิม)
+   - ไม่ได้ผ่อน         -> เอาติ๊กจ่ายแล้วออก
+   ค่าน้ำมัน: ลบทั้งหมดอัตโนมัติ
+   (รายการหลักที่เปิดแบ่งจ่ายจะนับครั้งเดียวที่รายการหลัก หน้าแบ่งจ่ายตามเอง)
+   ===================================================================== */
+function planMonth(list) {
+  const next = [], counted = [], doneGone = [], cleared = [];
+  for (const e of list) {
+    if (!(e.inst && e.inst.periods >= 2)) {                  // ไม่ผ่อน
+      if (e.isPaid) { cleared.push(e); next.push({...e, isPaid: false}); } else next.push(e);
+      continue;
+    }
+    const paid = e.inst.paid + (e.isPaid ? 1 : 0);
+    if (paid > e.inst.periods) { doneGone.push(e); continue; }   // ลบเมื่อ x > n เท่านั้น (x = n ยังคงไว้)
+    if (e.isPaid) counted.push(e);
+    next.push(e.isPaid ? {...e, isPaid: false, inst: {...e.inst, paid}} : e);
+  }
+  return {next, counted, doneGone, cleared};
+}
+
+/** ติ๊กจ่ายแล้วทุกรายการในหน้าแบ่งจ่าย (แก้ที่ต้นทางของแต่ละรายการ) */
+function markAllSplitPaid() {
+  let n = 0;
+  for (const i of splitList()) {
+    if (i.isPaid) continue;                        // ค่าน้ำมันถือว่าจ่ายแล้วเสมอ จึงถูกข้ามตรงนี้
+    const item = find(i.src === 'main' ? 'main' : 'split', i.srcId);
+    if (item) { item.isPaid = true; n++; }
+  }
+  if (!n) { toast('ทุกรายการจ่ายแล้ว'); return; }
+  commit();
+  toast(`ติ๊กจ่ายแล้ว ${n} รายการ`);
+}
+
+/** สำรองจ่าย "จ่ายแล้ว": ลบรายการสำรองจ่ายทั้งหมด (ย้อนกลับได้จากเมนู) */
+function clearAdvances() {
+  const n = state.advances.length;
+  if (!n) { toast('ไม่มีรายการสำรองจ่าย'); return; }
+  if (!confirm(`จ่ายแล้ว: ลบรายการสำรองจ่ายทั้งหมด ${n} รายการ (รวม ${fmt(totals().adv)} บาท)?\n\nย้อนกลับได้จากปุ่มเมนู`)) return;
+  try { localStorage.setItem(KEY + '_undo', JSON.stringify(state)); } catch (e) {}
+  state.advances = [];
+  commit();
+  toast('ลบรายการสำรองจ่ายทั้งหมดแล้ว');
+}
+
+function nextMonth() {
+  const groups = [
+    {label: 'รายการหลัก', key: 'expenses', plan: planMonth(state.expenses)},
+    {label: 'รายการแบ่งจ่าย', key: 'splits', plan: planMonth(state.splits)}
+  ];
+  const fuelCount = state.fuels.length;
+  const changed = g => g.plan.counted.length || g.plan.doneGone.length || g.plan.cleared.length;
+  if (!fuelCount && !groups.some(changed)) { toast('ไม่มีรายการที่ต้องเปลี่ยน'); return; }
+
+  const names = arr => arr.slice(0, 5).map(e => '   - ' + e.title).join('\n') + (arr.length > 5 ? `\n   ...และอีก ${arr.length - 5} รายการ` : '');
+  const lines = ['เริ่มเดือนต่อไป?'];
+  for (const g of groups) {
+    if (!changed(g)) continue;
+    lines.push('', `[${g.label}]`);
+    if (g.plan.counted.length) lines.push(`นับงวดผ่อนเพิ่ม 1 งวด ${g.plan.counted.length} รายการ`, names(g.plan.counted));
+    if (g.plan.doneGone.length) lines.push(`งวดที่นับเกินจำนวนงวด (x > n) ลบอัตโนมัติ ${g.plan.doneGone.length} รายการ`, names(g.plan.doneGone));
+    if (g.plan.cleared.length) lines.push(`เอาติ๊กจ่ายแล้วออก (ไม่ผ่อน) ${g.plan.cleared.length} รายการ`, names(g.plan.cleared));
+  }
+  if (fuelCount) lines.push('', '[ค่าน้ำมัน]', `ลบทั้งหมด ${fuelCount} รายการ`);
+  lines.push('', 'ย้อนกลับได้จากปุ่มเมนู');
+  if (!confirm(lines.join('\n'))) return;
+
+  try { localStorage.setItem(KEY + '_undo', JSON.stringify(state)); } catch (e) {}
+  groups.forEach(g => { state[g.key] = g.plan.next; });
+  state.fuels = [];
+  commit();
+  toast('เริ่มเดือนต่อไปแล้ว');
+}
+
+/* =====================================================================
+   4) การกระทำบนการ์ด
+   ===================================================================== */
+// จำสถานะเปิด/หุบของการ์ด
+document.addEventListener('toggle', e => {
+  const d = e.target;
+  if (d.matches && d.matches('details.card')) d.open ? openCards.add(d.dataset.key) : openCards.delete(d.dataset.key);
+}, true);
+
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.type === 'checkbox' && el.dataset.act) act(el.dataset.act, el.dataset.mod, el.dataset.id, el.checked);
+});
+document.addEventListener('click', e => {
+  const el = e.target.closest('button[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'nextmonth') { nextMonth(); return; }
+  if (el.dataset.act === 'paidall') { markAllSplitPaid(); return; }
+  if (el.dataset.act === 'exportadv') { exportJpg('adv'); return; }
+  if (el.dataset.act === 'advpaid') { clearAdvances(); return; }
+  act(el.dataset.act, el.dataset.mod, el.dataset.id);
+});
+
+function act(action, mod, id, checked) {
+  const item = find(mod, id);
+  if (!item) return;
+  switch (action) {
+    case 'paid':  item.isPaid = checked; break;
+    case 'split': item.isSplit = checked; break;
+    case 'unsplit': item.isSplit = false; break;
+    case 'half':  item.half = checked; break;
+    case 'inst-inc':
+    case 'inst-dec': {
+      if (!item.inst) return;
+      item.inst.paid = Math.max(0, Math.min(item.inst.periods, item.inst.paid + (action === 'inst-inc' ? 1 : -1)));
+      break;
+    }
+    case 'edit': openForm(mod, id); return;
+    case 'goto': tab = mod; openCards.add(mod + ':' + id); break;
+    case 'delete':
+      if (!confirm(`ลบ "${item.title}" ?`)) return;
+      state[MODS[mod]] = state[MODS[mod]].filter(x => x.id !== id);
+      break;
+    default: return;
+  }
+  commit();
+}
+
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); window.scrollTo(0, 0); }));
+$('#fab').addEventListener('click', () => openForm(tab));
+
+/* =====================================================================
+   5) ฟอร์มเพิ่ม / แก้ไข
+   ===================================================================== */
+const FORM_TITLE = {main: 'รายการหลัก', fuel: 'ค่าน้ำมัน', split: 'รายการแบ่งจ่าย', adv: 'รายการสำรองจ่าย'};
+const num = s => { const n = parseFloat(String(s).replace(/,/g, '')); return n; };
+
+function instFields(inst) {
+  return `<div class="row2">
+    <div class="field"><label for="f_periods">ผ่อนกี่งวด (เว้นว่าง = ไม่ผ่อน)</label>
+      <input id="f_periods" name="periods" type="number" min="1" max="360" step="1" inputmode="numeric" value="${inst && inst.periods >= 2 ? inst.periods : ''}"></div>
+    <div class="field"><label for="f_paidp">ผ่อนแล้วกี่งวด (ไม่รวมเดือนนี้)</label>
+      <input id="f_paidp" name="paidPeriods" type="number" min="0" step="1" inputmode="numeric" value="${inst ? inst.paid : 0}"></div>
+  </div><div class="preview" id="pvInst" hidden></div>`;
+}
+
+function openForm(mod, id) {
+  const item = id ? find(mod, id) : null;
+  const v = (k, d = '') => item && item[k] != null ? item[k] : d;
+  const amountLabel = mod === 'fuel' ? 'ยอดค่าน้ำมันรวม (บาท)' : 'จำนวนเงิน (บาท)';
+  const amountVal = mod === 'fuel' ? v('totalCost') : v('amount');
+  let extra = '';
+  if (mod === 'fuel') extra = `<div class="field"><label for="f_pct">แบ่งจ่ายกี่ % (0-100)</label>
+      <input id="f_pct" name="percent" type="number" min="0" max="100" step="any" inputmode="decimal" value="${v('percent', 50)}"></div>
+      <div class="preview" id="pvFuel"></div>`;
+  if (mod === 'main' || mod === 'split') extra = instFields(item && item.inst);
+  const flags = [];
+  if (mod !== 'fuel') flags.push(`<label class="sw"><input type="checkbox" name="isPaid"${v('isPaid', false) ? ' checked' : ''}><span>จ่ายแล้ว</span></label>`);
+  if (mod === 'main') flags.push(`<label class="sw"><input type="checkbox" name="isSplit"${v('isSplit', false) ? ' checked' : ''}><span>แบ่งจ่าย</span></label>`);
+  if (mod === 'adv') flags.push(`<label class="sw"><input type="checkbox" name="half"${v('half', false) ? ' checked' : ''}><span>หารสอง</span></label>`);
+
+  const form = $('#form');
+  form.dataset.mod = mod; form.dataset.id = id || '';
+  form.innerHTML = `
+    <h2>${item ? 'แก้ไข' : 'เพิ่ม'}${FORM_TITLE[mod]}</h2>
+    ${mod === 'fuel' ? '' : `<div class="field"><label for="f_title">ชื่อรายการ</label><input id="f_title" name="title" type="text" maxlength="80" required value="${esc(v('title'))}"></div>`}
+    <div class="row2">
+      <div class="field"><label for="f_amt">${amountLabel}</label><input id="f_amt" name="amount" type="number" step="any" required value="${amountVal}"></div>
+      <div class="field"><label for="f_date">วันที่</label><input id="f_date" name="date" type="date" required value="${v('date', todayISO())}"></div>
+    </div>
+    ${extra}
+    <div class="switches">${flags.join('')}</div>
+    <div class="field"><label for="f_note">หมายเหตุ</label><textarea id="f_note" name="note" rows="2" maxlength="300">${esc(v('note'))}</textarea></div>
+    <div class="err" id="formErr" role="alert"></div>
+    <div class="dlg-actions"><button type="button" class="btn" id="fCancel">ยกเลิก</button><button type="submit" class="btn fill">บันทึก</button></div>`;
+  $('#fCancel').onclick = () => $('#dlgForm').close();
+  form.oninput = updatePreviews;
+  updatePreviews();
+  $('#dlgForm').showModal();
+}
+
+/** แสดงยอดคำนวณสดๆ ระหว่างกรอก */
+function updatePreviews() {
+  const f = $('#form');
+  const amt = num(f.elements.amount && f.elements.amount.value);
+  const pf = $('#pvFuel');
+  if (pf) {
+    const p = num(f.elements.percent.value);
+    pf.textContent = isFinite(amt) && isFinite(p) ? `ยอดที่ส่งไปแบ่งจ่าย: ${fmt(r2(amt * p / 100))} บาท` : 'ยอดที่ส่งไปแบ่งจ่าย: -';
+  }
+  const pi = $('#pvInst');
+  if (pi) {
+    const n = parseInt(f.elements.periods.value, 10);
+    pi.hidden = !(n >= 2 && isFinite(amt));
+    if (!pi.hidden) pi.textContent = `งวดละ ${fmt(r2(amt / n))} บาท (${n} งวด)`;
+  }
+}
+
+$('#form').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, mod = f.dataset.mod, id = f.dataset.id;
+  const el = f.elements, err = m => { $('#formErr').textContent = m; };
+  const title = mod === 'fuel' ? '' : el.title.value.trim();
+  const amount = num(el.amount.value);
+  if (!title && mod !== 'fuel') return err('กรอกชื่อรายการ');
+  if (!isFinite(amount)) return err('กรอกจำนวนเงินให้ถูกต้อง (ใส่ค่าติดลบได้)');
+  if (!el.date.value) return err('เลือกวันที่');
+
+  const base = {title, date: el.date.value, isPaid: mod === 'fuel' ? true : el.isPaid.checked, note: el.note.value.trim()};
+  let rec;
+  if (mod === 'fuel') {
+    const percent = num(el.percent.value);
+    if (!isFinite(percent) || percent < 0 || percent > 100) return err('เปอร์เซ็นต์ต้องอยู่ระหว่าง 0 ถึง 100');
+    rec = {...base, totalCost: amount, percent};
+  } else if (mod === 'adv') {
+    rec = {...base, amount, half: el.half.checked};
+  } else {
+    let inst = null;
+    const raw = el.periods.value.trim();
+    if (raw !== '') {
+      const periods = parseInt(raw, 10);
+      const paid = parseInt(el.paidPeriods.value || '0', 10);
+      if (!(periods >= 1 && periods <= 360)) return err('จำนวนงวดต้องอยู่ระหว่าง 1 ถึง 360');
+      if (!(paid >= 0 && paid <= periods)) return err('งวดที่จ่ายแล้วต้องไม่เกินจำนวนงวดทั้งหมด');
+      if (periods >= 2) inst = {periods, paid};
+    }
+    rec = {...base, amount, inst};
+    if (mod === 'main') rec.isSplit = el.isSplit.checked;
+  }
+
+  const arr = state[MODS[mod]];
+  if (id) {
+    const i = arr.findIndex(x => x.id === id);
+    arr[i] = {...rec, id};
+  } else {
+    arr.push({...rec, id: uid()});
+  }
+  $('#dlgForm').close();
+  commit();
+});
+
+/* =====================================================================
+   6) ส่งออกเป็นรูป JPG (วาดใบสรุปด้วย Canvas ไม่ต้องใช้ไลบรารีเพิ่ม)
+   ===================================================================== */
+const FONT = '"Sarabun","Noto Sans Thai","Leelawadee UI","Segoe UI",Tahoma,sans-serif';
+let lastBlob = null;
+
+function buildReceipt(mode = 'both') {   // mode: 'both' = แบ่งจ่าย+สำรองจ่าย, 'adv' = เฉพาะสำรองจ่าย
+  const t = totals();
+  const splitRows = (mode === 'adv' ? [] : splitList()).map(i => ({
+    title: i.title, amt: perPeriod(i.amount, i.inst),
+    sub: [i.info, i.isPaid ? 'จ่ายแล้ว' : ''].filter(Boolean).join('  |  '), paid: i.isPaid
+  }));
+  const advRows = [...state.advances].sort((a, b) => b.date.localeCompare(a.date)).map(a => ({
+    title: a.title + (a.half ? ' (หารสอง)' : ''), amt: advAmt(a),
+    sub: [a.half ? `ยอดเต็ม ${fmt(a.amount)}` : '', a.isPaid ? 'จ่ายแล้ว' : ''].filter(Boolean).join('  |  '), paid: a.isPaid
+  }));
+
+  const W = 900, P = 48, S = 2;
+  const rowH = r => r.sub ? 70 : 52;
+  const secH = rows => 70 + (rows.length ? rows.reduce((s, r) => s + rowH(r), 0) : 56) + 70;
+  const H = 190 + (mode === 'adv' ? 0 : secH(splitRows)) + secH(advRows) + 170 + 40;
+
+  const c = document.createElement('canvas');
+  c.width = W * S; c.height = H * S;
+  const x = c.getContext('2d');
+  x.scale(S, S);
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);       // JPG ไม่มีความโปร่งใส ต้องลงพื้นขาว
+
+  const fit = (txt, maxW) => {
+    if (x.measureText(txt).width <= maxW) return txt;
+    while (txt.length > 1 && x.measureText(txt + '…').width > maxW) txt = txt.slice(0, -1);
+    return txt + '…';
+  };
+
+  // หัวใบสรุป
+  x.fillStyle = '#134e4a'; x.fillRect(0, 0, W, 150);
+  x.fillStyle = '#ffffff'; x.textBaseline = 'alphabetic';
+  x.font = `700 40px ${FONT}`; x.fillText(mode === 'adv' ? 'สรุปรายการสำรองจ่าย' : 'สรุปรายการแบ่งจ่าย / สำรองจ่าย', P, 70);
+  x.font = `400 24px ${FONT}`; x.globalAlpha = .85;
+  x.fillText('ณ วันที่ ' + new Date().toLocaleDateString('th-TH', {day: 'numeric', month: 'long', year: 'numeric'}), P, 112);
+  x.globalAlpha = 1;
+
+  let y = 190;
+  const section = (name, rows, subtotal) => {
+    x.fillStyle = '#134e4a'; x.font = `700 30px ${FONT}`; x.textAlign = 'left';
+    x.fillText(name, P, y + 30);
+    x.fillStyle = '#134e4a'; x.fillRect(P, y + 44, W - 2 * P, 3);
+    y += 70;
+    if (!rows.length) {
+      x.fillStyle = '#6b7775'; x.font = `400 24px ${FONT}`; x.fillText('ไม่มีรายการ', P, y + 24); y += 56;
+    }
+    rows.forEach(r => {
+      const h = rowH(r);
+      x.fillStyle = '#14201f'; x.font = `600 27px ${FONT}`; x.textAlign = 'left';
+      x.fillText(fit(r.title, W - 2 * P - 200), P, y + 26);
+      x.textAlign = 'right'; x.font = `700 27px ${FONT}`; x.fillText(fmt(r.amt), W - P, y + 26);
+      if (r.sub) {
+        x.textAlign = 'left'; x.font = `400 20px ${FONT}`; x.fillStyle = r.paid ? '#17794a' : '#6b7775';
+        x.fillText(fit(r.sub, W - 2 * P), P, y + 54);
+      }
+      x.strokeStyle = '#c9d4d2'; x.setLineDash([5, 5]); x.lineWidth = 1;
+      x.beginPath(); x.moveTo(P, y + h - 4); x.lineTo(W - P, y + h - 4); x.stroke(); x.setLineDash([]);
+      y += h;
+    });
+    x.textAlign = 'left'; x.fillStyle = '#14201f'; x.font = `600 26px ${FONT}`;
+    x.fillText('รวม' + name, P, y + 34);
+    x.textAlign = 'right'; x.font = `700 30px ${FONT}`; x.fillText(fmt(subtotal), W - P, y + 34);
+    y += 70;
+  };
+
+  if (mode !== 'adv') section('รายการแบ่งจ่าย', splitRows, t.split);
+  section('รายการสำรองจ่าย', advRows, t.adv);
+
+  // ยอดรวมสุทธิ
+  x.fillStyle = '#134e4a'; x.fillRect(P, y, W - 2 * P, 120);
+  x.fillStyle = '#ffffff'; x.textAlign = 'left'; x.font = `600 28px ${FONT}`;
+  x.fillText(mode === 'adv' ? 'ยอดรวมสำรองจ่าย' : 'ยอดรวมสุทธิ (แบ่งจ่าย + สำรองจ่าย)', P + 28, y + 50);
+  x.fillStyle = '#f3c14b'; x.textAlign = 'right'; x.font = `700 52px ${FONT}`;
+  x.fillText(fmt(mode === 'adv' ? t.adv : t.grand) + ' บาท', W - P - 28, y + 98);
+  return c;
+}
+
+async function exportJpg(mode = 'both') {
+  if (mode === 'adv' && !state.advances.length) { toast('ไม่มีรายการสำรองจ่ายให้ส่งออก'); return; }
+  exportKind = mode === 'adv' ? 'advance' : 'summary';
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const canvas = buildReceipt(mode);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+    if (!blob) throw new Error('no blob');
+    lastBlob = blob;
+    const img = $('#receiptImg');
+    if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    img.src = URL.createObjectURL(blob);
+    $('#rShare').hidden = !(navigator.canShare && navigator.canShare({files: [new File([blob], 'x.jpg', {type: 'image/jpeg'})]}));
+    $('#dlgReceipt').showModal();
+  } catch (e) { toast('สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+}
+let exportKind = 'summary';
+const fileName = () => `expense-${exportKind}-${todayISO()}.jpg`;
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+$('#btnExport').onclick = () => exportJpg('both');
+$('#rClose').onclick = () => $('#dlgReceipt').close();
+$('#rSave').onclick = () => { if (lastBlob) { download(lastBlob, fileName()); toast('บันทึกไฟล์แล้ว ดูที่โฟลเดอร์ดาวน์โหลด'); } };
+$('#rShare').onclick = async () => {
+  if (!lastBlob) return;
+  try { await navigator.share({files: [new File([lastBlob], fileName(), {type: 'image/jpeg'})], title: 'สรุปรายการแบ่งจ่าย'}); }
+  catch (e) { if (e.name !== 'AbortError') toast('แชร์ไม่สำเร็จ ใช้ปุ่มบันทึกแทน'); }
+};
+
+/* =====================================================================
+   7) สำรอง / นำเข้า / ลบข้อมูล
+   ===================================================================== */
+$('#btnMenu').onclick = () => $('#dlgMenu').showModal();
+$('#mClose').onclick = () => $('#dlgMenu').close();
+$('#mBackup').onclick = () => {
+  download(new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'}), `expense-backup-${todayISO()}.json`);
+  toast('สำรองข้อมูลแล้ว');
+};
+$('#mRestore').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = async e => {
+  const file = e.target.files[0]; e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || typeof data !== 'object' || !['expenses', 'fuels', 'splits', 'advances'].every(k => Array.isArray(data[k] || []))) throw 0;
+    if (!confirm('นำเข้าข้อมูลจะแทนที่ข้อมูลปัจจุบันทั้งหมด ต้องการต่อไหม?')) return;
+    state = Object.assign(EMPTY(), data);
+    $('#dlgMenu').close(); commit(); toast('นำเข้าข้อมูลแล้ว');
+  } catch (err) { toast('ไฟล์ไม่ถูกต้อง'); }
+};
+$('#mUndo').onclick = () => {
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem(KEY + '_undo')); } catch (e) {}
+  if (!snap) { toast('ไม่มีข้อมูลให้ย้อนกลับ'); return; }
+  if (!confirm('ย้อนกลับไปก่อนการลบครั้งล่าสุด? ข้อมูลปัจจุบันจะถูกแทนที่')) return;
+  state = Object.assign(EMPTY(), snap);
+  try { localStorage.removeItem(KEY + '_undo'); } catch (e) {}
+  $('#dlgMenu').close(); commit(); toast('ย้อนกลับแล้ว');
+};
+$('#mClear').onclick = () => {
+  if (!confirm('ลบข้อมูลทั้งหมดในเครื่องนี้? ย้อนกลับไม่ได้' + (syncOn() ? '\n\nข้อมูลบน Google Sheet จะถูกลบตามด้วย' : ''))) return;
+  state = EMPTY(); openCards.clear(); $('#dlgMenu').close(); commit(); toast('ลบข้อมูลแล้ว');
+};
+
+/* ---- แก้ไขรายรับ ---- */
+$('#btnIncome').onclick = () => {
+  const t = totals();
+  $('#incomeHint').textContent = `คงเหลือ = รายรับ − ผลรวมหน้าหลัก ${fmt(mainTotal())} + แบ่งจ่าย ${fmt(t.split)}`;
+  $('#f_income').value = incomeValue();
+  $('#incomeErr').textContent = '';
+  $('#dlgIncome').showModal();
+};
+$('#iCancel').onclick = () => $('#dlgIncome').close();
+$('#incomeForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = num($('#f_income').value);
+  if (!isFinite(v)) { $('#incomeErr').textContent = 'กรอกตัวเลขให้ถูกต้อง'; return; }
+  state.income = r2(v);
+  $('#dlgIncome').close(); commit();
+});
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* =====================================================================
+   8) เริ่มทำงาน + Service Worker (ใช้ได้เมื่อเปิดผ่าน http/https เท่านั้น)
+   ===================================================================== */
+/* =====================================================================
+   9) ซิงก์ Google Sheet (ผ่าน Apps Script)
+   - ข้อมูลหลักอยู่ในเครื่อง (ใช้ออฟไลน์ได้) แล้วส่งสำเนาทั้งชุดขึ้น Sheet
+   - ส่งเลขเวอร์ชันไปด้วย ถ้าอีกเครื่องบันทึกไปก่อน จะถามผู้ใช้ก่อนเขียนทับ
+   - URL และ TOKEN เก็บแยกจากข้อมูล ไม่อยู่ในโค้ดและไม่อยู่ในไฟล์สำรอง
+   ===================================================================== */
+const SYNC_KEY = KEY + '_sync';
+const SYNC_DEFAULT = () => ({url: '', token: '', auto: true, version: 0, dirty: false, last: null});
+function loadSync() {
+  try { return Object.assign(SYNC_DEFAULT(), JSON.parse(localStorage.getItem(SYNC_KEY)) || {}); }
+  catch (e) { return SYNC_DEFAULT(); }
+}
+let sync = loadSync();
+const saveSync = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); } catch (e) {} };
+const syncOn = () => !!(sync.url && sync.token);
+
+let syncBusy = false, syncAgain = false, syncTimer = null, conflictOpen = false, conflictInfo = null;
+let editSeq = 0, lastCheck = 0;
+
+const snapshot = () => ({expenses: state.expenses, fuels: state.fuels, splits: state.splits, advances: state.advances, income: state.income});
+const localEmpty = () => !state.expenses.length && !state.fuels.length && !state.splits.length && !state.advances.length && !state.income;
+const timeStr = () => new Date().toLocaleTimeString('th-TH', {hour: '2-digit', minute: '2-digit'});
+const errText = c => c === 'unauthorized' ? 'TOKEN ไม่ถูกต้อง' : 'ซิงก์ไม่สำเร็จ: ' + c;
+
+function setStatus(text, cls = '') {
+  const el = $('#syncStatus');
+  el.textContent = text ? 'Google Sheet: ' + text : '';
+  el.hidden = !text || !syncOn();
+  el.className = 'sync ' + cls;
+}
+
+/** เรียก Apps Script (ใช้ text/plain เพื่อเลี่ยง CORS preflight) */
+async function api(action, extra = {}) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 25000);
+  try {
+    const r = await fetch(sync.url, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify({token: sync.token, action, ...extra}),
+      signal: ctl.signal
+    });
+    return await r.json();
+  } finally { clearTimeout(timer); }
+}
+
+/** เรียกจาก commit(): ทำเครื่องหมายว่ามีข้อมูลยังไม่ซิงก์ แล้วหน่วงเวลาส่ง */
+function scheduleSync() {
+  if (!syncOn()) return;
+  editSeq++;
+  sync.dirty = true; saveSync();
+  if (!sync.auto) { setStatus('มีการเปลี่ยนแปลงที่ยังไม่ซิงก์ (แตะเพื่อซิงก์)', 'warn'); return; }
+  if (conflictOpen) return;
+  clearTimeout(syncTimer);
+  setStatus('รอซิงก์…', 'warn');
+  syncTimer = setTimeout(() => pushNow(), 2000);
+}
+
+async function pushNow(force = false) {
+  if (!syncOn() || conflictOpen) return;
+  if (syncBusy) { syncAgain = true; return; }
+  syncBusy = true;
+  const seq = editSeq;
+  setStatus('กำลังซิงก์…', 'warn');
+  try {
+    const res = await api('save', {data: snapshot(), baseVersion: sync.version, force});
+    if (res.ok) {
+      sync.version = res.version; sync.last = Date.now();
+      if (seq === editSeq) sync.dirty = false;          // ถ้าระหว่างส่งมีการแก้ใหม่ ยังถือว่ามีของค้าง
+      saveSync();
+      setStatus('ซิงก์แล้ว ' + timeStr(), 'ok');
+    } else if (res.error === 'conflict') {
+      setStatus('ข้อมูลไม่ตรงกับ Sheet', 'warn');
+      askConflict(res.version, null);
+    } else {
+      setStatus(errText(res.error), 'bad');
+    }
+    return res;
+  } catch (e) {
+    setStatus('ซิงก์ไม่สำเร็จ (ไม่มีเน็ตหรือเชื่อมต่อไม่ได้) จะลองใหม่', 'bad');
+    return {ok: false, error: 'network'};
+  } finally {
+    syncBusy = false;
+    if (syncAgain) { syncAgain = false; pushNow(); }
+  }
+}
+
+/** แทนที่ข้อมูลในเครื่องด้วยข้อมูลจาก Sheet (เก็บสำเนาไว้ให้ย้อนกลับได้) */
+function applyRemote(data, version) {
+  try { localStorage.setItem(KEY + '_undo', JSON.stringify(state)); } catch (e) {}
+  state = Object.assign(EMPTY(), data);
+  sync.version = version; sync.dirty = false; sync.last = Date.now(); saveSync();
+  save(); render();
+  setStatus('ซิงก์แล้ว ' + timeStr(), 'ok');
+}
+
+/** ตรวจเทียบเวอร์ชันกับ Sheet แล้วตัดสินใจ ดึง / ส่ง / ถามผู้ใช้ */
+async function syncCheck(manual = false) {
+  if (!syncOn() || syncBusy || conflictOpen) return;
+  lastCheck = Date.now();
+  setStatus('กำลังตรวจสอบ…', 'warn');
+  try {
+    const res = await api('load');
+    if (!res.ok) { setStatus(errText(res.error), 'bad'); if (manual) toast(errText(res.error)); return res; }
+
+    if (res.version === 0) {                                   // Sheet ยังว่าง
+      if (localEmpty()) setStatus('ซิงก์แล้ว ' + timeStr(), 'ok');
+      else { sync.version = 0; await pushNow(); }
+    } else if (sync.version === 0) {                           // เพิ่งเชื่อมต่อครั้งแรก และ Sheet มีข้อมูลอยู่
+      if (localEmpty()) applyRemote(res.data, res.version);
+      else askConflict(res.version, res.data);
+    } else if (res.version === sync.version) {                 // เวอร์ชันตรงกัน
+      if (sync.dirty && (sync.auto || manual)) await pushNow();
+      else if (sync.dirty) setStatus('มีการเปลี่ยนแปลงที่ยังไม่ซิงก์ (แตะเพื่อซิงก์)', 'warn');
+      else setStatus('ซิงก์แล้ว ' + timeStr(), 'ok');
+    } else {                                                   // Sheet ใหม่กว่า
+      if (sync.dirty) askConflict(res.version, res.data);
+      else applyRemote(res.data, res.version);
+    }
+    return res;
+  } catch (e) {
+    setStatus('เชื่อมต่อไม่ได้ (ตรวจอินเทอร์เน็ต หรือ URL / การ Deploy)', 'bad');
+    if (manual) toast('เชื่อมต่อ Google Sheet ไม่ได้');
+    return {ok: false, error: 'network'};
+  }
+}
+
+/* ---- หน้าต่างเลือกเมื่อข้อมูลไม่ตรงกัน ---- */
+function askConflict(remoteVersion, remoteData) {
+  conflictOpen = true;
+  conflictInfo = {version: remoteVersion, data: remoteData};
+  setStatus('ข้อมูลไม่ตรงกับ Sheet รอการเลือก', 'warn');
+  $('#dlgConflict').showModal();
+}
+function closeConflict() { conflictOpen = false; $('#dlgConflict').close(); }
+$('#dlgConflict').addEventListener('close', () => { conflictOpen = false; });
+$('#dlgConflict').addEventListener('cancel', () => setStatus('ข้อมูลไม่ตรงกับ Sheet (แตะเพื่อเลือกใหม่)', 'warn'));
+
+$('#cSheet').onclick = async () => {
+  const info = conflictInfo; closeConflict();
+  try {
+    let data = info.data, version = info.version;
+    if (!data) {
+      const res = await api('load');
+      if (!res.ok) { setStatus(errText(res.error), 'bad'); return; }
+      data = res.data; version = res.version;
+    }
+    applyRemote(data, version);
+    toast('ใช้ข้อมูลจาก Sheet แล้ว (ย้อนกลับได้จากเมนู)');
+  } catch (e) { setStatus('ดึงข้อมูลไม่สำเร็จ', 'bad'); }
+};
+$('#cLocal').onclick = async () => {
+  const info = conflictInfo; closeConflict();
+  sync.version = info.version; sync.dirty = true; saveSync();
+  await pushNow(true);
+};
+$('#cLater').onclick = () => { closeConflict(); setStatus('ข้อมูลไม่ตรงกับ Sheet (แตะเพื่อเลือกใหม่)', 'warn'); };
+
+/* ---- หน้าตั้งค่า ---- */
+$('#mSync').onclick = () => {
+  $('#dlgMenu').close();
+  $('#f_surl').value = sync.url; $('#f_stoken').value = sync.token; $('#f_sauto').checked = sync.auto;
+  $('#syncErr').textContent = ''; $('#sOff').hidden = !syncOn();
+  $('#dlgSync').showModal();
+};
+$('#sCancel').onclick = () => $('#dlgSync').close();
+$('#sOff').onclick = () => {
+  if (!confirm('ตัดการเชื่อมต่อ Google Sheet? ข้อมูลในเครื่องและใน Sheet ยังอยู่ตามเดิม')) return;
+  clearTimeout(syncTimer);
+  sync = SYNC_DEFAULT(); saveSync();
+  $('#dlgSync').close(); setStatus(''); $('#mSyncNow').hidden = true; toast('ตัดการเชื่อมต่อแล้ว');
+};
+$('#syncForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const url = $('#f_surl').value.trim(), token = $('#f_stoken').value.trim();
+  const err = m => { $('#syncErr').textContent = m; };
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec$/.test(url)) return err('URL ต้องขึ้นต้นด้วย https://script.google.com/macros/s/ และลงท้ายด้วย /exec');
+  if (!token) return err('กรอก TOKEN');
+  if (url !== sync.url) sync.version = 0;
+  sync.url = url; sync.token = token; sync.auto = $('#f_sauto').checked; saveSync();
+  $('#dlgSync').close();
+  $('#mSyncNow').hidden = false;
+  const res = await syncCheck(true);
+  if (res && res.ok) toast('เชื่อมต่อ Google Sheet แล้ว');
+});
+$('#mSyncNow').onclick = () => { $('#dlgMenu').close(); syncCheck(true); };
+$('#syncStatus').onclick = () => { if (syncOn() && !syncBusy) syncCheck(true); };
+
+window.addEventListener('online', () => syncCheck());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - lastCheck > 30000) syncCheck();
+});
+
+render();
+$('#mSyncNow').hidden = !syncOn();
+syncCheck();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
