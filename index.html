@@ -163,6 +163,26 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   </form>
 </dialog>
 
+<dialog id="dlgScan">
+  <div class="dlg">
+    <h2>สแกนใบเสร็จ</h2>
+    <div id="scanChoose" class="menu-list">
+      <p class="note">ถ่ายหรือเลือกรูปใบเสร็จ แอปจะอ่านชื่อร้าน ยอดเงิน และวันที่ ใส่ลงฟอร์มสำรองจ่ายให้ ตรวจสอบก่อนบันทึกทุกครั้ง ตัวเลขอาจอ่านผิดได้</p>
+      <p class="note">อ่านบนเครื่องของคุณ ไม่อัปโหลดรูปไปที่ไหน และแอปไม่บันทึกรูปไว้เลย (แอปกล้องของมือถืออาจเก็บรูปไว้ในแกลเลอรีเอง)</p>
+      <button class="btn fill" id="scanCam">ถ่ายภาพใบเสร็จ</button>
+      <button class="btn" id="scanPick">เลือกรูปจากเครื่อง</button>
+      <p class="note">ครั้งแรกต้องใช้อินเทอร์เน็ตโหลดตัวอ่านข้อความภาษาไทย (หลายเมกะไบต์ อาจใช้เวลาสักครู่)</p>
+    </div>
+    <div id="scanBusy" hidden>
+      <div class="note" id="scanMsg" role="status"></div>
+      <div class="bar" aria-hidden="true"><i id="scanBar" style="width:0%"></i></div>
+    </div>
+    <div class="dlg-actions"><button class="btn" id="scanClose">ปิด</button></div>
+  </div>
+</dialog>
+<input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="filePick" accept="image/*" hidden>
+
 <dialog id="dlgConflict">
   <div class="dlg">
     <h2>ข้อมูลไม่ตรงกัน</h2>
@@ -205,6 +225,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <dialog id="dlgMenu">
   <div class="dlg">
     <h2>ข้อมูลของคุณ</h2>
+    <p class="note">เวอร์ชันแอป: 2026.10.15-scan</p>
     <p class="note">ข้อมูลเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ถ้าล้างข้อมูลเบราว์เซอร์ ข้อมูลจะหาย ควรสำรองไว้เป็นระยะ</p>
     <div class="menu-list">
       <button class="btn" id="mSync">ตั้งค่าซิงก์ Google Sheet</button>
@@ -438,7 +459,10 @@ function viewSplit() {
 }
 
 function viewAdv() {
-  if (!state.advances.length) return emptyBox('ยังไม่มีรายการสำรองจ่าย กดปุ่ม "+ เพิ่มสำรองจ่าย" ด้านล่าง');
+  if (!state.advances.length) {   // รายการว่างก็ยังต้องมีปุ่มสแกนให้กด
+    return `<div class="section-note"><span>รวมสำรองจ่าย <b>${fmt(0)}</b></span><span class="actions"><button class="btn fill" data-act="scan">สแกนใบเสร็จ</button></span></div>`
+      + emptyBox('ยังไม่มีรายการสำรองจ่าย กด "สแกนใบเสร็จ" หรือปุ่ม "+ เพิ่มสำรองจ่าย" ด้านล่าง');
+  }
   const t = totals();
   const items = [...state.advances].sort((a, b) => b.date.localeCompare(a.date)).map(a => card({
     key: 'adv:' + a.id, title: a.title, amount: advAmt(a), date: a.date, paid: a.isPaid,
@@ -448,7 +472,7 @@ function viewAdv() {
       ${noteBlock(a.note)}
       <div class="actions">${btn('edit', 'adv', a.id, 'แก้ไข')}${btn('delete', 'adv', a.id, 'ลบ', 'danger')}</div>`
   })).join('');
-  return `<div class="section-note"><span>รวมสำรองจ่าย <b>${fmt(t.adv)}</b></span><span class="actions"><button class="btn" data-act="exportadv">ส่งออก JPG</button><button class="btn fill" data-act="advpaid">จ่ายแล้ว</button></span></div>${items}`;
+  return `<div class="section-note"><span>รวมสำรองจ่าย <b>${fmt(t.adv)}</b></span><span class="actions"><button class="btn" data-act="scan">สแกนใบเสร็จ</button><button class="btn" data-act="exportadv">ส่งออก JPG</button><button class="btn fill" data-act="advpaid">จ่ายแล้ว</button></span></div>${items}`;
 }
 
 /* =====================================================================
@@ -547,6 +571,7 @@ document.addEventListener('click', e => {
   if (!el) return;
   if (el.dataset.act === 'nextmonth') { nextMonth(); return; }
   if (el.dataset.act === 'paidall') { markAllSplitPaid(); return; }
+  if (el.dataset.act === 'scan') { openScan(); return; }
   if (el.dataset.act === 'exportadv') { exportJpg('adv'); return; }
   if (el.dataset.act === 'advpaid') { clearAdvances(); return; }
   act(el.dataset.act, el.dataset.mod, el.dataset.id);
@@ -595,9 +620,10 @@ function instFields(inst) {
   </div><div class="preview" id="pvInst" hidden></div>`;
 }
 
-function openForm(mod, id) {
+function openForm(mod, id, prefill) {
   const item = id ? find(mod, id) : null;
-  const v = (k, d = '') => item && item[k] != null ? item[k] : d;
+  const pre = prefill || {};
+  const v = (k, d = '') => item && item[k] != null ? item[k] : (pre[k] != null && pre[k] !== '' ? pre[k] : d);
   const amountLabel = mod === 'fuel' ? 'ยอดค่าน้ำมันรวม (บาท)' : 'จำนวนเงิน (บาท)';
   const amountVal = mod === 'fuel' ? v('totalCost') : v('amount');
   let extra = '';
@@ -614,6 +640,7 @@ function openForm(mod, id) {
   form.dataset.mod = mod; form.dataset.id = id || '';
   form.innerHTML = `
     <h2>${item ? 'แก้ไข' : 'เพิ่ม'}${FORM_TITLE[mod]}</h2>
+    ${pre.fromReceipt ? '<div class="preview">อ่านจากใบเสร็จอัตโนมัติ (ไม่เก็บรูป) ตรวจสอบตัวเลขก่อนบันทึก</div>' : ''}
     ${mod === 'fuel' ? '' : `<div class="field"><label for="f_title">ชื่อรายการ</label><input id="f_title" name="title" type="text" maxlength="80" required value="${esc(v('title'))}"></div>`}
     <div class="row2">
       <div class="field"><label for="f_amt">${amountLabel}</label><input id="f_amt" name="amount" type="number" step="any" required value="${amountVal}"></div>
@@ -1059,6 +1086,197 @@ window.addEventListener('online', () => syncCheck());
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && Date.now() - lastCheck > 30000) syncCheck();
 });
+
+/* =====================================================================
+   10) สแกนใบเสร็จ (OCR บนเครื่อง ด้วย Tesseract.js)
+   - รูปถูกอ่านในหน่วยความจำแล้วทิ้งทันที ไม่บันทึกลงที่ใดและไม่ส่งออกจากเครื่อง
+   - ดึงชื่อร้าน ยอดรวม วันที่ มาใส่ฟอร์มสำรองจ่ายให้ตรวจสอบก่อนบันทึก
+   ===================================================================== */
+const TESS_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let tessLoading = null, scanWorker = null, scanCancel = false, scanRunning = false;
+
+/** แปลงข้อความ OCR ให้อ่านง่ายขึ้น: เลขไทย -> เลขอารบิก, รวมเลขที่ถูกเว้นวรรคผิด (1 ,412 .40) */
+function normalizeOcr(text) {
+  return String(text || '')
+    .replace(/[๐-๙]/g, c => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(c)))
+    .replace(/(\d)[ \t]*([.,])[ \t]*(\d)/g, '$1$2$3');
+}
+
+const MONEY_RE = /\d{1,3}(?:,\d{3})+\.\d{2}(?!\d)|\d+\.\d{2}(?!\d)/g;
+const toNum = s => parseFloat(String(s).replace(/,/g, ''));
+const TH_MONTHS = {'มค': 1, 'กพ': 2, 'มีค': 3, 'เมย': 4, 'พค': 5, 'มิย': 6, 'กค': 7, 'สค': 8, 'กย': 9, 'ตค': 10, 'พย': 11, 'ธค': 12};
+
+function lineMoney(line) {
+  const m = line.match(MONEY_RE);
+  return m ? toNum(m[m.length - 1]) : null;       // ตัวเลขท้ายบรรทัดมักเป็นยอด
+}
+
+function receiptAmount(lines) {
+  const hardSkip = /ทอน|change|tender|รับเงิน|ส่วนลด|discount|point|แต้ม/i;
+  const tier1 = /สุทธิ|ทั้งสิ้น|grand\s*total|net\s*total|net\s*amount|amount\s*due|total\s*due|balance\s*due/i;
+  const tier2 = /ยอดรวม|รวมเงิน|ยอดชำระ|จำนวนเงิน|ชำระเงิน|total|amount|รวม/i;
+  const t2skip = /vat|ภาษี|ก่อน|sub\s*total|subtotal|รายการ|ชิ้น|items?\b/i;
+  const pick = (re, extraSkip) => {
+    const found = [];
+    lines.forEach((ln, i) => {
+      if (!re.test(ln) || hardSkip.test(ln) || (extraSkip && extraSkip.test(ln))) return;
+      let v = lineMoney(ln);
+      if (v == null && lines[i + 1] && !/[ก-๙a-z]/i.test(lines[i + 1])) v = lineMoney(lines[i + 1]);   // ยอดอยู่บรรทัดถัดไป
+      if (v != null && v > 0) found.push(v);
+    });
+    return found.length ? Math.max(...found) : null;
+  };
+  let amt = pick(tier1) ?? pick(tier2, t2skip);
+  if (amt == null) {                               // ไม่เจอคำบอกยอดรวม: ใช้ตัวเลขทศนิยมที่มากที่สุด ยกเว้นเงินทอน/เงินสด/ภาษี
+    const skip = /ทอน|change|tender|รับเงิน|เงินสด|cash|vat|ภาษี|เลขที่|tax\s*id|tel|โทร/i;
+    const all = [];
+    lines.forEach(ln => { if (!skip.test(ln)) (ln.match(MONEY_RE) || []).forEach(m => all.push(toNum(m))); });
+    amt = all.length ? Math.max(...all) : null;
+  }
+  return amt;
+}
+
+function receiptDate(text, now = new Date()) {
+  const cands = [];
+  const add = (idx, d, m, y) => {
+    d = +d; m = +m; y = +y;
+    if (y >= 2400) y -= 543;                       // พ.ศ. -> ค.ศ.
+    else if (y < 100) y = y >= 60 ? y + 1957 : 2000 + y;   // ปี 2 หลัก: 69 = พ.ศ. 2569, 26 = ค.ศ. 2026
+    const dt = new Date(y, m - 1, d);
+    if (m < 1 || m > 12 || d < 1 || dt.getMonth() !== m - 1 || dt.getDate() !== d) return;
+    const min = new Date(now); min.setFullYear(min.getFullYear() - 3);
+    const max = new Date(now); max.setDate(max.getDate() + 31);
+    if (dt < min || dt > max) return;              // วันที่ที่ไม่สมเหตุสมผล (อ่านผิด) ไม่เอา
+    cands.push({idx, iso: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`});
+  };
+  for (const m of text.matchAll(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/g)) add(m.index, m[3], m[2], m[1]);
+  for (const m of text.matchAll(/(?<!\d)(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})(?!\d)/g)) add(m.index, m[1], m[2], m[3]);
+  for (const m of text.matchAll(/(\d{1,2})\s*([ก-๛.]{2,8})\s*(\d{4}|\d{2})(?!\d)/g)) {
+    const mo = TH_MONTHS[m[2].replace(/[.\s]/g, '')];
+    if (mo) add(m.index, m[1], mo, m[3]);
+  }
+  cands.sort((a, b) => a.idx - b.idx);
+  return cands.length ? cands[0].iso : '';
+}
+
+function receiptTitle(lines) {
+  const bad = /ใบเสร็จ|ใบกำกับ|tax\s*invoice|receipt|invoice|สำเนา|copy|โทร|tel|www\.|http|สาขา|เลขที่|tax\s*id|ที่อยู่|เลขประจำตัว|vat\s*reg/i;
+  for (const raw of lines.slice(0, 8)) {
+    const ln = raw.replace(/^[^ก-๛A-Za-z]+|[^ก-๛A-Za-z0-9)]+$/g, '').trim();
+    const letters = (ln.match(/[ก-๛A-Za-z]/g) || []).length;
+    if (letters >= 3 && letters / ln.length > 0.5 && !bad.test(ln)) return ln.slice(0, 40);
+  }
+  return '';
+}
+
+/** อ่านข้อความใบเสร็จ -> {title, amount, date} (เดาตามรูปแบบทั่วไป ผู้ใช้ต้องตรวจก่อนบันทึก) */
+function parseReceiptText(raw, now = new Date()) {
+  const text = normalizeOcr(raw);
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return {title: receiptTitle(lines), amount: receiptAmount(lines), date: receiptDate(text, now)};
+}
+
+/* ---- เตรียมรูปให้ OCR อ่านง่าย: ย่อขนาด + ขาวดำ + ขยายคอนทราสต์ (ทำในหน่วยความจำเท่านั้น) ---- */
+async function prepareImage(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file); }
+  catch (e) {
+    bmp = await new Promise((res, rej) => {
+      const u = URL.createObjectURL(file), im = new Image();
+      im.onload = () => { URL.revokeObjectURL(u); res(im); };
+      im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('img')); };
+      im.src = u;
+    });
+  }
+  const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+  const k0 = Math.min(1, 1800 / Math.max(w0, h0));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w0 * k0); c.height = Math.round(h0 * k0);
+  const x = c.getContext('2d', {willReadFrequently: true});
+  x.drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  const id = x.getImageData(0, 0, c.width, c.height), d = id.data, hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) { const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0; d[i] = d[i + 1] = d[i + 2] = g; hist[g]++; }
+  const total = c.width * c.height; let lo = 0, hi = 255, acc = 0;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= total * 0.02) { lo = v; break; } }
+  acc = 0;
+  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= total * 0.02) { hi = v; break; } }
+  if (hi - lo > 20) {
+    const k = 255 / (hi - lo);
+    for (let i = 0; i < d.length; i += 4) { const v = Math.max(0, Math.min(255, ((d[i] - lo) * k) | 0)); d[i] = d[i + 1] = d[i + 2] = v; }
+  }
+  x.putImageData(id, 0, 0);
+  return c;
+}
+
+/** โหลดไลบรารี OCR เมื่อใช้งานครั้งแรกเท่านั้น (ไม่กระทบการเปิดแอปปกติ) */
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (tessLoading) return tessLoading;
+  tessLoading = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = TESS_SRC; s.onload = res;
+    s.onerror = () => { tessLoading = null; rej(new Error('load')); };
+    document.head.appendChild(s);
+  });
+  return tessLoading;
+}
+
+function scanView(busy, msg = '', pct = 0) {
+  $('#scanChoose').hidden = busy;
+  $('#scanBusy').hidden = !busy;
+  $('#scanMsg').textContent = msg;
+  $('#scanBar').style.width = Math.max(0, Math.min(100, pct)) + '%';
+  $('#scanClose').textContent = busy ? 'ยกเลิก' : 'ปิด';
+}
+function openScan() { scanView(false); $('#dlgScan').showModal(); }
+
+async function scanFile(file) {
+  if (!file || scanRunning) return;
+  scanRunning = true; scanCancel = false;
+  let canvas = null;
+  try {
+    scanView(true, 'กำลังโหลดตัวอ่านข้อความ…', 2);
+    await loadTesseract();
+    if (scanCancel) return;
+    scanView(true, 'กำลังเตรียมรูป…', 5);
+    canvas = await prepareImage(file);
+    if (scanCancel) return;
+    scanWorker = await Tesseract.createWorker('tha+eng', 1, {
+      logger: m => {
+        if (scanCancel) return;
+        const p = (m.progress || 0) * 100;
+        if (m.status === 'recognizing text') scanView(true, 'กำลังอ่านใบเสร็จ…', 20 + p * 0.8);
+        else scanView(true, 'กำลังโหลดข้อมูลภาษา (ครั้งแรกใช้เวลานาน)…', 5 + p * 0.15);
+      }
+    });
+    if (scanCancel) return;
+    const {data} = await scanWorker.recognize(canvas);
+    if (scanCancel) return;
+    const r = parseReceiptText(data.text || '');
+    if (!r.amount && !r.title && !r.date) { scanView(false); toast('อ่านข้อความไม่ได้ ลองถ่ายให้ชัด เห็นทั้งใบ และมีแสงพอ'); return; }
+    $('#dlgScan').close();
+    openForm('adv', null, {title: r.title, amount: r.amount, date: r.date, fromReceipt: true});
+  } catch (e) {
+    if (scanCancel) return;
+    scanView(false);
+    toast(e && e.message === 'load' ? 'โหลดตัวอ่านข้อความไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่' : 'สแกนไม่สำเร็จ ลองถ่ายใหม่');
+  } finally {
+    if (canvas) { canvas.width = canvas.height = 0; }            // ทิ้งรูปจากหน่วยความจำ
+    if (scanWorker) { try { await scanWorker.terminate(); } catch (e) {} scanWorker = null; }
+    $('#fileCam').value = ''; $('#filePick').value = '';
+    scanRunning = false;
+  }
+}
+
+$('#scanCam').onclick = () => $('#fileCam').click();
+$('#scanPick').onclick = () => $('#filePick').click();
+$('#fileCam').onchange = e => scanFile(e.target.files[0]);
+$('#filePick').onchange = e => scanFile(e.target.files[0]);
+$('#scanClose').onclick = () => {
+  if (scanRunning) { scanCancel = true; if (scanWorker) { try { scanWorker.terminate(); } catch (e) {} } scanView(false); toast('ยกเลิกแล้ว'); }
+  else $('#dlgScan').close();
+};
 
 render();
 $('#mSyncNow').hidden = !syncOn();
